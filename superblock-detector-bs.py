@@ -719,7 +719,7 @@ def phase_2_bereinigung_segmentierung(
         # Schritt 5: Bereinigung des Netzes durch räumlichen Filter
         log_info(feedback, log_path, "🧹 Entferne Mobilitätsnetz-Elemente innerhalb Ausschlussfläche...")
         
-        # Extrahiere Linien außerhalb der Puffer
+        # Extrahiere Linien ausserhalb der Puffer
         result = processing.run("native:extractbylocation", {
             'INPUT': gefiltert_path,
             'PREDICATE': [0],  # intersects
