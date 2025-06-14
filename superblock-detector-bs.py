@@ -1007,10 +1007,26 @@ def phase_4_quantilskala(
             raise QgsProcessingException(f"Blocks-Layer nicht gefunden: {input_blocks}")
         log_info(feedback, log_path, f"✅ Blocks-Layer gefunden: {input_blocks}")
 
-        join_layer = os.path.join(temp_path.replace("_tempdata", "_prepared_inputdata"), "gwr_bund_bs_lv95.gpkg")
-        if not os.path.exists(join_layer):
-            raise QgsProcessingException(f"Gebäude-Layer nicht gefunden: {join_layer}")
-        log_info(feedback, log_path, f"✅ Gebäude-Layer gefunden: {join_layer}")
+        # Gebäude-Layer basierend auf Datenquelle bestimmen
+        prepared_input_path = temp_path.replace("_tempdata", "_prepared_inputdata")
+        gebaeude_gwr_path = os.path.join(prepared_input_path, "gwr_bund_bs_lv95.gpkg")
+        gebaeude_kt_path = os.path.join(prepared_input_path, "gebaeudeinformationen_kt_bs_lv95.gpkg")
+
+        # Prüfe welche Gebäudedaten verfügbar sind
+        if os.path.exists(gebaeude_kt_path):
+            join_layer = f"{gebaeude_kt_path}|layername=gebaeudeinformationen_kt_bs_lv95"
+            log_info(feedback, log_path, "📌 Verwende kantonale Gebäudedaten für die Bewertung")
+        elif os.path.exists(gebaeude_gwr_path):
+            join_layer = f"{gebaeude_gwr_path}|layername=gwr_bund_bs_lv95"
+            log_info(feedback, log_path, "📌 Verwende GWR-Gebäudedaten für die Bewertung")
+        else:
+            raise QgsProcessingException("Kein gültiger Gebäudedatensatz gefunden (weder GWR noch kantonal)")
+
+        # Validiere den Layer
+        test_layer = QgsVectorLayer(join_layer.split('|')[0], "test", "ogr")
+        if not test_layer.isValid():
+            raise QgsProcessingException(f"Gebäude-Layer ist ungültig: {join_layer}")
+        log_info(feedback, log_path, f"✅ Gebäude-Layer gefunden und validiert: {join_layer}")
 
         # Gebäudescores aggregieren
         log_info(feedback, log_path, "🔄 Aggregiere Gebäudescores...")
@@ -1020,7 +1036,7 @@ def phase_4_quantilskala(
         result = processing.run("native:joinbylocationsummary", {
             'INPUT': input_blocks,
             'PREDICATE': [1],  # contains
-            'JOIN': f'{join_layer}|layername=gwr_bund_bs_lv95',
+            'JOIN': join_layer,
             'JOIN_FIELDS': ['score_gebaeude'],
             'SUMMARIES': [5],  # sum
             'DISCARD_NONMATCHING': False,
