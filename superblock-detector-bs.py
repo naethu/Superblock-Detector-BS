@@ -64,7 +64,6 @@ GNU General Public License v2 oder höher
 
 from qgis import processing
 from qgis.core import (
-    QgsFeatureSink,
     QgsProcessing,
     QgsProcessingAlgorithm,
     QgsProcessingContext,
@@ -73,7 +72,6 @@ from qgis.core import (
     QgsProcessingParameterFeatureSource,
     QgsProcessingParameterFolderDestination,
     QgsProcessingParameterEnum,
-    QgsProcessingParameterDefinition,
     QgsCoordinateReferenceSystem,
     QgsVectorLayer,
     QgsField,
@@ -1016,9 +1014,11 @@ def phase_4_quantilskala(
         if os.path.exists(gebaeude_kt_path):
             join_layer = f"{gebaeude_kt_path}|layername=gebaeudeinformationen_kt_bs_lv95"
             log_info(feedback, log_path, "📌 Verwende kantonale Gebäudedaten für die Bewertung")
+            data_source = "kantonal"
         elif os.path.exists(gebaeude_gwr_path):
             join_layer = f"{gebaeude_gwr_path}|layername=gwr_bund_bs_lv95"
             log_info(feedback, log_path, "📌 Verwende GWR-Gebäudedaten für die Bewertung")
+            data_source = "gwr"
         else:
             raise QgsProcessingException("Kein gültiger Gebäudedatensatz gefunden (weder GWR noch kantonal)")
 
@@ -1029,7 +1029,7 @@ def phase_4_quantilskala(
         log_info(feedback, log_path, f"✅ Gebäude-Layer gefunden und validiert: {join_layer}")
 
         # Gebäudescores aggregieren
-        log_info(feedback, log_path, "🔄 Aggregiere Gebäudescores...")
+        log_info(feedback, log_path, f"🔄 Aggregiere Gebäudescores (Datenquelle: {data_source})...")
         joined_score_path = os.path.join(temp_path, "1_liegenschaftsflaechen_score_geb_sum.gpkg")
 
         # Aggregation durchführen
@@ -1042,10 +1042,10 @@ def phase_4_quantilskala(
             'DISCARD_NONMATCHING': False,
             'OUTPUT': joined_score_path
         }, context=context, feedback=feedback)
-        
+
         if not result or not os.path.exists(joined_score_path):
             raise QgsProcessingException("Fehler beim Aggregieren der Gebäudescores")
-        
+
         # Layer nach erfolgreicher Aggregation laden
         layer = QgsVectorLayer(joined_score_path, "joined_layer", "ogr")
         if not layer.isValid():
